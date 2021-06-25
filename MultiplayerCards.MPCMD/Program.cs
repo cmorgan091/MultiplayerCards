@@ -13,6 +13,10 @@ namespace MultiplayerCards.MPCMD
             Console.WriteLine($"Listing all {deck.Cards.Count} cards in the deck");
 
             Console.WriteLine(string.Join(", ", deck.Cards));
+
+            Console.WriteLine($"Shuffling deck and listing all cards");
+
+            Console.WriteLine(string.Join(", ", deck.GetShuffledCards()));
         }
     }
 }

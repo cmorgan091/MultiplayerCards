@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace MultiplayerCards.Domain
@@ -11,5 +12,11 @@ namespace MultiplayerCards.Domain
         }
 
         public List<Card> Cards { get; set; }
+
+        public IOrderedEnumerable<Card> GetShuffledCards()
+        {
+            var random = new Random();
+            return Cards.OrderBy(c => random.Next());
+        }
     }
 }
