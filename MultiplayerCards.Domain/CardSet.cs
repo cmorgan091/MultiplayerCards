@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace MultiplayerCards.Domain
 {
@@ -17,5 +18,24 @@ namespace MultiplayerCards.Domain
         public string Name { get; }
 
         public CardSetStates State { get; }
+
+        public void MoveFirstTo(CardSet targetCardSet)
+        {
+            var card = this.FirstOrDefault();
+
+            if (card == null)
+            {
+                throw new Exception($"Cannot {nameof(MoveFirstTo)} as there are no cards in this card set");
+            }
+
+            // remove from this card set and add to another card set
+            Remove(card);
+            targetCardSet.Add(card);
+        }
+
+        public string ToDebugString()
+        {
+            return $"{Name} ({State}) ({this.Count()}) - {string.Join(", ", this.Select(x => x.ToString()))}";
+        }
     }
 }

@@ -6,11 +6,12 @@ namespace MultiplayerCards.Domain
 {
     public class Game
     {
-        public Game(GameDefinition definition, List<Player> players, Deck deck)
+        public Game(GameDefinition definition, List<Player> players, Deck deck, GameTable table)
         {
             Definition = definition;
-            GamePlayers = players.Select(p => new GamePlayer(p, new List<CardSet> { new CardSet("Hand", CardSetStates.InHand) })).ToList();
+            GamePlayers = players.Select(p => new GamePlayer(this, p, new List<CardSet> { new CardSet("Blind", CardSetStates.Blind) })).ToList();
             Deck = deck;
+            Table = table;
         }
 
         public void Start()
@@ -21,7 +22,7 @@ namespace MultiplayerCards.Domain
             var currentGamePlayerId = 0;
             foreach (var card in cards)
             {
-                // put card in players hand
+                // put card in players blind hand
                 var gamePlayer = GamePlayers[currentGamePlayerId];
                 gamePlayer.CardSets[0].Add(card);
 
@@ -31,13 +32,36 @@ namespace MultiplayerCards.Domain
                     currentGamePlayerId = 0;
                 }
             }
+
+            // the first player dealt to goes first
+            CurrentPlayerTurnId = 0;
+            GamePlayers[CurrentPlayerTurnId].StartTurn();
+        }
+
+        public void TurnComplete()
+        {
+            // occurs every time a player completes a turn
+
+
+            // increment the player turn id
+            CurrentPlayerTurnId++;
+            if (CurrentPlayerTurnId == GamePlayers.Count)
+            {
+                CurrentPlayerTurnId = 0;
+            }
+
+
         }
 
         public GameDefinition Definition { get; }
 
         public List<GamePlayer> GamePlayers { get; }
 
-        public Deck Deck { get; set; }
+        public Deck Deck { get; }
+
+        public GameTable Table { get; }
+
+        public int CurrentPlayerTurnId { get; private set; }
 
         public string ToDebugString()
         {
@@ -49,9 +73,11 @@ namespace MultiplayerCards.Domain
                 sb.AppendLine($"   Card Sets:");
                 foreach (var cardSet in player.CardSets)
                 {
-                    sb.AppendLine($"      {cardSet.State} ({cardSet.Count()}) - {string.Join(", ", cardSet.Select(x => x.ToString()))}");
+                    sb.AppendLine($"      {cardSet.ToDebugString()}");
                 }
             }
+
+            sb.AppendLine($"{Table.ToDebugString()}");
 
             return sb.ToString();
         }

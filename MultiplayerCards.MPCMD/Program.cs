@@ -27,7 +27,7 @@ namespace MultiplayerCards.MPCMD
                 new Player("Player 2", true),
             };
 
-            var game = new Game(new GameDefinition(), players, deck);
+            var game = new Game(new GameDefinition(), players, deck, new GameTable());
 
             // deal the cards
             game.Start();

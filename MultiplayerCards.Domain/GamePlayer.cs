@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 
 namespace MultiplayerCards.Domain
 {
@@ -7,15 +8,40 @@ namespace MultiplayerCards.Domain
     /// </summary>
     public class GamePlayer
     {
-        public GamePlayer(Player player, List<CardSet> cardSets)
+        public GamePlayer(Game game, Player player, List<CardSet> cardSets)
         {
+            Game = game;
             Player = player;
             CardSets = cardSets;
         }
 
+        public Game Game { get; }
+
         public Player Player { get; }
 
         public List<CardSet> CardSets { get; }
+
+        public bool IsPlayersTurn { get; private set; }
+
+        public void StartTurn()
+        {
+            IsPlayersTurn = true;
+
+            // if the player has any cards, then they lay it
+            if (CardSets[0].Any())
+            {
+                CardSets[0].MoveFirstTo(Game.Table.PlayPile);
+            }
+
+            EndTurn();
+        }
+
+        public void EndTurn()
+        {
+            IsPlayersTurn = false;
+
+            Game.TurnComplete();
+        }
 
         public override string ToString()
         {
