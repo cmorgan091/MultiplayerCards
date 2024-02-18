@@ -14,9 +14,15 @@ namespace MultiplayerCards.Domain
         public List<Card> Cards { get; set; }
 
         public IOrderedEnumerable<Card> GetShuffledCards()
+            => Cards.Shuffle();
+    }
+
+    public static class CardExtensions
+    { 
+        public static IOrderedEnumerable<Card> Shuffle(this IEnumerable<Card> cards)
         {
             var random = new Random();
-            return Cards.OrderBy(c => random.Next());
+            return cards.OrderBy(c => random.Next());
         }
     }
 }

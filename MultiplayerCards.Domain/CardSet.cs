@@ -33,6 +33,12 @@ namespace MultiplayerCards.Domain
             targetCardSet.Add(card);
         }
 
+        public void MoveAllTo(CardSet targetCardSet)
+        {
+            targetCardSet.AddRange(this);
+            RemoveAll(x => x != null);
+        }
+
         public string ToDebugString()
         {
             return $"{Name} ({State}) ({this.Count()}) - {string.Join(", ", this.Select(x => x.ToString()))}";

@@ -12,6 +12,8 @@
         
         public CardSuits Suit { get; set; }
 
+        public int Id { get; set; } = -1;
+
         public override string ToString()
         {
             return $"{Suit.ToChar(true)}{Number.ToShortName()}";

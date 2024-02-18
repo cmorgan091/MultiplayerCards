@@ -17,6 +17,13 @@ namespace MultiplayerCards.Domain
                 }
             }
 
+            var id = 0;
+            foreach (var card in cards.Shuffle())
+            {
+                card.Id = id;
+                id++;
+            };
+
             return new Deck(cards);
         }
     }
