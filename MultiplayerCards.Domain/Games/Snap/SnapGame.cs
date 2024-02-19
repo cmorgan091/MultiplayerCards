@@ -65,6 +65,7 @@ namespace MultiplayerCards.Domain.Games.Snap
 
             // ok so we can add this player
             var gamePlayer = new SnapGamePlayer(this, player);
+            player.LinkToGamePlayer(gamePlayer);
 
             Players.Add(gamePlayer);
 
@@ -78,7 +79,7 @@ namespace MultiplayerCards.Domain.Games.Snap
                 }
             }
 
-            return new JoinGameResponse { Success = true };
+            return new JoinGameResponse { Success = true, GamePlayer = gamePlayer };
         }
 
         public void StartGame()
@@ -439,10 +440,16 @@ namespace MultiplayerCards.Domain.Games.Snap
         SkippedGo,
     }
 
+    public interface IGamePlayer
+    {
+        Task StartGamePlayingLoopAsync();
+        void StopGamePlayingLoop();
+    }
+
     /// <summary>
     /// This is effectively happenning on the client, this will eventually be split in two when comms set up
     /// </summary>
-    public class SnapGamePlayer
+    public class SnapGamePlayer : IGamePlayer
     {
         public string Name => Player.Name;
         public Guid Id { get; }
@@ -463,15 +470,41 @@ namespace MultiplayerCards.Domain.Games.Snap
             Id = Guid.NewGuid();
         }
 
+        private bool _continueGamePlayingLoop;
+
+        public async Task StartGamePlayingLoopAsync()
+        {
+            _continueGamePlayingLoop = true;
+            var lastSeenGameStateId = -1;
+
+            while (_continueGamePlayingLoop && Game.Status != GameStatus.Finished)
+            {
+                if (lastSeenGameStateId == (LatestGameState?.GameStateId ?? -1))
+                {
+                    // so we've seen this before, we didn't do any actions before, so just go back to sleep for longer
+                    Thread.Sleep(200);
+                    continue;
+                }
+
+                // so a new game state has been received
+                lastSeenGameStateId = LatestGameState.GameStateId;
+
+                if (AvailableActions.Count > 0)
+                {
+                    Think();
+                }
+            }
+        }
+
+        public void StopGamePlayingLoop()
+        {
+            _continueGamePlayingLoop = false;
+        }
+
         public void ReceiveGameState(SnapGameState gameState, List<string> availableActions)
         {
             LatestGameState = gameState;
             AvailableActions = availableActions;
-
-            if (availableActions.Count > 0)
-            {
-                Think();
-            }            
         }
 
         public void Think()
@@ -524,8 +557,6 @@ namespace MultiplayerCards.Domain.Games.Snap
                 }
             }
         }
-
-
     }
 
     public enum GameStatus
@@ -541,6 +572,7 @@ namespace MultiplayerCards.Domain.Games.Snap
     {
         public bool Success { get; set; }
         public string FailureReason { get; set; }
+        public IGamePlayer GamePlayer { get; set; }
     }
 
     public interface IGame

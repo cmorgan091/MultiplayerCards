@@ -3,6 +3,7 @@ using MultiplayerCards.Domain.Games.Snap;
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace MultiplayerCards.MPCMD
 {
@@ -47,10 +48,15 @@ namespace MultiplayerCards.MPCMD
                 AutoStartWhenMinPlayersReached = false,
             });
 
-            game.JoinGame(new Player("Player 1", true));
-            game.JoinGame(new Player("Player 2", true));
+            var player1 = new Player("Player 1", true);
+            var player2 = new Player("Player 2", true);
 
-            
+            var player1Response = game.JoinGame(player1);
+            var player2Response = game.JoinGame(player2);
+
+            Task.Run(() => player1.StartGamePlayingLoop());
+            Task.Run(() => player2.StartGamePlayingLoop());
+
             game.StartGame();
 
             while (game.Status == GameStatus.Playing)
@@ -58,6 +64,9 @@ namespace MultiplayerCards.MPCMD
                 // monitoring thread
                 Thread.Sleep(1000);
             }
+
+            player1.StopGamePlayingLoop();
+            player2.StopGamePlayingLoop();
         }
     }
 }
