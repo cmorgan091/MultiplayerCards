@@ -507,6 +507,10 @@ namespace MultiplayerCards.Domain.Games.Snap
         private int ThinkingTimeInMs => MinThinkingTimeInMs + (CpuPlayer.Reactions == CpuReactions.Fast
             ? random.Next(50) : CpuPlayer.Reactions == CpuReactions.Medium ? random.Next(100) : random.Next(150));
 
+        private int RandomCallSnapWithoutCheckingOneInX => 
+            CpuPlayer.Intelligence == CpuIntelligence.Low ? 10
+            : CpuPlayer.Intelligence == CpuIntelligence.Medium ? 50 : 100;
+
         private bool _continueGamePlayingLoop;
 
         public override async Task StartGamePlayingLoopAsync()
@@ -563,7 +567,7 @@ namespace MultiplayerCards.Domain.Games.Snap
             {
                 var lastTwoCardNumbers = LatestGameState.CardsOnStack.Skip(LatestGameState.CardsOnStack.Length - 2).Take(2).Select(x => x.Substring(x.Length - 1)).ToList();
 
-                if (lastTwoCardNumbers[0] == lastTwoCardNumbers[1])
+                if (lastTwoCardNumbers[0] == lastTwoCardNumbers[1] || random.Next(RandomCallSnapWithoutCheckingOneInX + 1) == RandomCallSnapWithoutCheckingOneInX)
                 {
                     // we have a match! call snap
                     var action = new CallSnapAction(Id, LatestGameState.GameStateId);

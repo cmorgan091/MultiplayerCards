@@ -48,8 +48,8 @@ namespace MultiplayerCards.MPCMD
                 AutoStartWhenMinPlayersReached = false,
             });
 
-            var player1 = new CpuPlayer("Player 1", CpuIntelligence.Medium, CpuReactions.Medium);
-            var player2 = new CpuPlayer("Player 2", CpuIntelligence.Medium, CpuReactions.Fast);
+            var player1 = new CpuPlayer("High intellgience medium", CpuIntelligence.High, CpuReactions.Medium);
+            var player2 = new CpuPlayer("Low intelligence fast", CpuIntelligence.Low, CpuReactions.Fast);
             
             var player1Response = game.JoinGame(player1);
             var player2Response = game.JoinGame(player2);
