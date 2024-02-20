@@ -16,6 +16,7 @@ namespace MultiplayerCards.Domain.Games.Snap
         public string Name { get; } = "Snap";
         public int MinPlayers { get; } = 2;
         public int MaxPlayers { get; } = 2;
+        public bool HasHumanPlayers => Players.Any(x => !x.IsCpu);
         public GameStatus Status { get; private set; } = GameStatus.NotInitialised;
 
         private SnapGameOptions Options;
@@ -169,157 +170,164 @@ namespace MultiplayerCards.Domain.Games.Snap
             Players.ForEach(x => x.ReceiveGameState(gameState, availableActionsDictionary[x.Id]));
         }
 
+        private object _lock = new object();
+
         public PlayActionResponse PlayAction(IPlayerAction action)
         {
             // todo add a lock around this to stop multiple actions being played
-
-            if (action == null) throw new ArgumentNullException(nameof(action));
-
-            var player = Players.Single(x => x.Id == action.PlayerId);
-
-            if (action.LastGameStateId != GameStatesList.Last().GameStateId)
+            lock (_lock)
             {
-                return new PlayActionResponse { 
-                    Success = false, 
-                    FailureReason = $"Action had last id of {action.LastGameStateId} but the actual last id is {GameStatesList.Last().GameStateId}, player ({player.Name}) is out of sync" 
-                };
-            }
 
-            if (action is LayCardAction layCardAction)
-            {
-                if (action.PlayerId != CurrentPlayersTurn.Id)
+                if (action == null) throw new ArgumentNullException(nameof(action));
+
+                var player = Players.Single(x => x.Id == action.PlayerId);
+
+                if (action.LastGameStateId != GameStatesList.Last().GameStateId)
                 {
                     return new PlayActionResponse
                     {
                         Success = false,
-                        FailureReason = $"Action came from user {action.PlayerId} but it is currently the turn of {CurrentPlayersTurn.Id}, player is out of sync"
+                        FailureReason = $"Action had last id of {action.LastGameStateId} but the actual last id is {GameStatesList.Last().GameStateId}, player ({player.Name}) is out of sync"
                     };
                 }
 
-                // lay the card
-                PlayerCardStacks[player].MoveFirstTo(InPlayStack);
-
-                // switch to next player
-                NextPlayersTurn();
-
-                // update everyone
-                SendGameState(SnapActions.CardLaid, player.Name);
-
-                return new PlayActionResponse
+                if (action is LayCardAction layCardAction)
                 {
-                    Success = true,
-                };
-            }
-
-            if (action is SkipGoAction skipGoAction)
-            {
-                if (action.PlayerId != CurrentPlayersTurn.Id)
-                {
-                    return new PlayActionResponse
+                    if (action.PlayerId != CurrentPlayersTurn.Id)
                     {
-                        Success = false,
-                        FailureReason = $"Action came from user {action.PlayerId} but it is currently the turn of {CurrentPlayersTurn.Id}, player is out of sync"
-                    };
-                }
-
-                // verify that the user has no cards
-                if (PlayerCardStacks[player].Any())
-                {
-                    return new PlayActionResponse
-                    {
-                        Success = false,
-                        FailureReason = $"User tried to skip go but has {PlayerCardStacks[player].Count()} cards in there stack",
-                    };
-                }
-
-                // switch to next player
-                NextPlayersTurn();
-
-                // update everyone
-                SendGameState(SnapActions.SkippedGo, player.Name);
-
-                return new PlayActionResponse
-                {
-                    Success = true,
-                };
-            }
-
-            if (action is CallSnapAction callSnapAction)
-            {
-                // any user can do this action
-
-                // grab the last two cards
-                var lastTwoCards = InPlayStack.Skip(InPlayStack.Count - 2).Take(2).ToArray();
-
-                if (lastTwoCards[0].Number == lastTwoCards[1].Number)
-                {
-                    // success
-                    Console.WriteLine($"Snap called successfully by {player.Name}");
-
-                    PlayerHandsWon[player]++;
-
-                    Console.WriteLine($"{InPlayStack.Count} cards sent to {player.Name}");
-
-                    // the deck (and next turn) goes to the winning player
-                    InPlayStack.MoveAllTo(PlayerCardStacks[player]);
-                    CurrentPlayersTurn = player;
-
-                    // does the winning user have all the cards?
-                    if (PlayerCardStacks[player].Count == Deck.Cards.Count)
-                    {
-                        GameWon(player);
                         return new PlayActionResponse
                         {
-                            Success = true,
+                            Success = false,
+                            FailureReason = $"Action came from user {action.PlayerId} but it is currently the turn of {CurrentPlayersTurn.Id}, player is out of sync"
                         };
                     }
 
-                    SendGameState(SnapActions.SnapSuccess, player.Name);
-                }
-                else
-                {
-                    // bad call
-                    Console.WriteLine($"Snap called INCORRECTLY by {player.Name}");
+                    // lay the card
+                    PlayerCardStacks[player].MoveFirstTo(InPlayStack);
 
-                    var opponent = GetOpponent(player);
-                    PlayerHandsWon[opponent]++;
+                    // switch to next player
+                    NextPlayersTurn();
 
-                    Console.WriteLine($"{InPlayStack.Count} cards sent to {opponent.Name}");
+                    // update everyone
+                    SendGameState(SnapActions.CardLaid, player.Name);
 
-                    // the deck (and next turn) goes to the opponent
-                    InPlayStack.MoveAllTo(PlayerCardStacks[opponent]);
-                    CurrentPlayersTurn = opponent;
-
-                    // does the winning user have all the cards?
-                    if (PlayerCardStacks[opponent].Count == Deck.Cards.Count)
+                    return new PlayActionResponse
                     {
-                        GameWon(opponent);
+                        Success = true,
+                    };
+                }
+
+                if (action is SkipGoAction skipGoAction)
+                {
+                    if (action.PlayerId != CurrentPlayersTurn.Id)
+                    {
                         return new PlayActionResponse
                         {
-                            Success = true,
+                            Success = false,
+                            FailureReason = $"Action came from user {action.PlayerId} but it is currently the turn of {CurrentPlayersTurn.Id}, player is out of sync"
                         };
                     }
 
-                    SendGameState(SnapActions.SnapFail, player.Name);
+                    // verify that the user has no cards
+                    if (PlayerCardStacks[player].Any())
+                    {
+                        return new PlayActionResponse
+                        {
+                            Success = false,
+                            FailureReason = $"User tried to skip go but has {PlayerCardStacks[player].Count()} cards in there stack",
+                        };
+                    }
+
+                    // switch to next player
+                    NextPlayersTurn();
+
+                    // update everyone
+                    SendGameState(SnapActions.SkippedGo, player.Name);
+
+                    return new PlayActionResponse
+                    {
+                        Success = true,
+                    };
                 }
-                
-                // lay the card
-                
-                PlayerCardStacks[player].MoveFirstTo(InPlayStack);
 
-                // switch to next player
-                NextPlayersTurn();
-
-                // update everyone
-                SendGameState(SnapActions.CardLaid, player.Name);
-
-                return new PlayActionResponse
+                if (action is CallSnapAction callSnapAction)
                 {
-                    Success = true,
-                };
-            }
+                    // any user can do this action
 
-            throw new NotImplementedException($"Unknown action type {action.GetType().Name}");
+                    // grab the last two cards
+                    var lastTwoCards = InPlayStack.Skip(InPlayStack.Count - 2).Take(2).ToArray();
+
+                    if (lastTwoCards[0].Number == lastTwoCards[1].Number)
+                    {
+                        // success
+                        Console.WriteLine($"Snap called successfully by {player.Name}");
+
+                        PlayerHandsWon[player]++;
+
+                        Console.WriteLine($"{InPlayStack.Count} cards sent to {player.Name}");
+
+                        // the deck (and next turn) goes to the winning player
+                        InPlayStack.MoveAllTo(PlayerCardStacks[player]);
+                        CurrentPlayersTurn = player;
+
+                        // does the winning user have all the cards?
+                        if (PlayerCardStacks[player].Count == Deck.Cards.Count)
+                        {
+                            GameWon(player);
+                            return new PlayActionResponse
+                            {
+                                Success = true,
+                            };
+                        }
+
+                        SendGameState(SnapActions.SnapSuccess, player.Name);
+                    }
+                    else
+                    {
+                        // bad call
+                        Console.WriteLine($"Snap called INCORRECTLY by {player.Name}");
+
+                        var opponent = GetOpponent(player);
+                        PlayerHandsWon[opponent]++;
+
+                        Console.WriteLine($"{InPlayStack.Count} cards sent to {opponent.Name}");
+
+                        // the deck (and next turn) goes to the opponent
+                        InPlayStack.MoveAllTo(PlayerCardStacks[opponent]);
+                        CurrentPlayersTurn = opponent;
+
+                        // does the winning user have all the cards?
+                        if (PlayerCardStacks[opponent].Count == Deck.Cards.Count)
+                        {
+                            GameWon(opponent);
+                            return new PlayActionResponse
+                            {
+                                Success = true,
+                            };
+                        }
+
+                        SendGameState(SnapActions.SnapFail, player.Name);
+                    }
+
+                    // lay the card
+
+                    PlayerCardStacks[player].MoveFirstTo(InPlayStack);
+
+                    // switch to next player
+                    NextPlayersTurn();
+
+                    // update everyone
+                    SendGameState(SnapActions.CardLaid, player.Name);
+
+                    return new PlayActionResponse
+                    {
+                        Success = true,
+                    };
+                }
+
+                throw new NotImplementedException($"Unknown action type {action.GetType().Name}");
+
+            }
         }
 
         private void GameWon(SnapGamePlayer player)
@@ -446,43 +454,74 @@ namespace MultiplayerCards.Domain.Games.Snap
         void StopGamePlayingLoop();
     }
 
-    /// <summary>
-    /// This is effectively happenning on the client, this will eventually be split in two when comms set up
-    /// </summary>
-    public class SnapGamePlayer : IGamePlayer
+    public abstract class BaseGamePlayer<TGame> : IGamePlayer
+        where TGame : IGame
     {
-        public string Name => Player.Name;
+        protected readonly TGame Game;
+        protected readonly Player Player;
         public Guid Id { get; }
 
-        private readonly SnapGame Game;
-        private readonly Player Player;
 
-        private SnapGameState LatestGameState;
-        private List<string> AvailableActions;
+        public string Name => Player.Name;
+        public bool IsCpu => Player is CpuPlayer;
 
-        public SnapGamePlayer(SnapGame game, Player player)
+        public BaseGamePlayer(TGame game, Player player)
         {
             if (game == null) throw new ArgumentNullException(nameof(game));
             if (player == null) throw new ArgumentNullException(nameof(player));
 
             Game = game;
             Player = player;
+
             Id = Guid.NewGuid();
         }
 
+        public abstract Task StartGamePlayingLoopAsync();
+        public abstract void StopGamePlayingLoop();
+    }
+
+    /// <summary>
+    /// This is effectively happenning on the client, this will eventually be split in two when comms set up
+    /// </summary>
+    public class SnapGamePlayer : BaseGamePlayer<SnapGame>
+    {
+        private SnapGameState LatestGameState;
+        private List<string> AvailableActions;
+
+        private readonly Random random = new Random();
+
+        private CpuPlayer CpuPlayer;
+
+        public SnapGamePlayer(SnapGame game, Player player) : base(game, player)
+        {
+            if (player is CpuPlayer cpuPlayer)
+            {
+                CpuPlayer = cpuPlayer;
+            }
+        }
+
+        private int WaitIterationTimeInMs => Game.HasHumanPlayers ? 500 : 50;
+
+        private int MinThinkingTimeInMs => Game.HasHumanPlayers ? 200 : 0;
+
+        private int ThinkingTimeInMs => MinThinkingTimeInMs + (CpuPlayer.Reactions == CpuReactions.Fast
+            ? random.Next(50) : CpuPlayer.Reactions == CpuReactions.Medium ? random.Next(100) : random.Next(150));
+
         private bool _continueGamePlayingLoop;
 
-        public async Task StartGamePlayingLoopAsync()
+        public override async Task StartGamePlayingLoopAsync()
         {
             _continueGamePlayingLoop = true;
             var lastSeenGameStateId = -1;
+            var lastThinkFailed = false;
 
             while (_continueGamePlayingLoop && Game.Status != GameStatus.Finished)
             {
-                if (lastSeenGameStateId == (LatestGameState?.GameStateId ?? -1))
+                if (!lastThinkFailed && lastSeenGameStateId == (LatestGameState?.GameStateId ?? -1))
                 {
                     // so we've seen this before, we didn't do any actions before, so just go back to sleep for longer
-                    Thread.Sleep(200);
+                    
+                    await Task.Delay(WaitIterationTimeInMs);
                     continue;
                 }
 
@@ -491,12 +530,20 @@ namespace MultiplayerCards.Domain.Games.Snap
 
                 if (AvailableActions.Count > 0)
                 {
-                    Think();
+                    try
+                    {
+                        await Think();
+                        lastThinkFailed = false;
+                    }
+                    catch (Exception ex)
+                    {
+                        lastThinkFailed = true;
+                    }
                 }
             }
         }
 
-        public void StopGamePlayingLoop()
+        public override void StopGamePlayingLoop()
         {
             _continueGamePlayingLoop = false;
         }
@@ -507,9 +554,9 @@ namespace MultiplayerCards.Domain.Games.Snap
             AvailableActions = availableActions;
         }
 
-        public void Think()
+        public async Task Think()
         {
-            Thread.Sleep(100);
+            await Task.Delay(ThinkingTimeInMs);
 
             // check the last two cards
             if (LatestGameState.CardsOnStack.Count() >= 2)

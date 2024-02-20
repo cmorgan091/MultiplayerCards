@@ -48,14 +48,14 @@ namespace MultiplayerCards.MPCMD
                 AutoStartWhenMinPlayersReached = false,
             });
 
-            var player1 = new Player("Player 1", true);
-            var player2 = new Player("Player 2", true);
-
+            var player1 = new CpuPlayer("Player 1", CpuIntelligence.Medium, CpuReactions.Medium);
+            var player2 = new CpuPlayer("Player 2", CpuIntelligence.Medium, CpuReactions.Fast);
+            
             var player1Response = game.JoinGame(player1);
             var player2Response = game.JoinGame(player2);
 
-            Task.Run(() => player1.StartGamePlayingLoop());
-            Task.Run(() => player2.StartGamePlayingLoop());
+            var task1 = Task.Run(() => player1.StartGamePlayingLoop());
+            var task2 = Task.Run(() => player2.StartGamePlayingLoop());
 
             game.StartGame();
 

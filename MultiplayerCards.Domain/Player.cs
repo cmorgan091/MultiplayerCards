@@ -58,4 +58,30 @@ namespace MultiplayerCards.Domain
             return Name + (IsCpu ? " (CPU)" : "");
         }
     }
+
+    public class CpuPlayer : Player
+    {
+        public CpuIntelligence Intelligence { get; }
+        public CpuReactions Reactions { get; }
+
+        public CpuPlayer(string name, CpuIntelligence intelligence, CpuReactions reactions) : base(name, true) 
+        {
+            Intelligence = intelligence;
+            Reactions = reactions;
+        }
+    }
+
+    public enum CpuIntelligence
+    {
+        Low,
+        Medium,
+        High,
+    }
+
+    public enum CpuReactions
+    {
+        Slow,
+        Medium,
+        Fast,
+    }
 }
