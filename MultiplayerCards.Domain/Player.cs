@@ -29,6 +29,16 @@ namespace MultiplayerCards.Domain
             currentGamePlayer = gamePlayer;
         }
 
+        public void UnlinkGamePlayer()
+        {
+            if (currentGamePlayer == null)
+            {
+                throw new Exception($"Cannot {nameof(UnlinkGamePlayer)} as not currently linked");
+            }
+
+            currentGamePlayer = null;
+        }
+
         public void StartGamePlayingLoop()
         {
             if (currentGamePlayer == null)

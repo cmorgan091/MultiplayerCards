@@ -2,6 +2,7 @@
 using MultiplayerCards.Domain.Games.Snap;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -41,32 +42,58 @@ namespace MultiplayerCards.MPCMD
             //Console.WriteLine(game.ToDebugString());
 
             // new methodology
-            var game = new SnapGame();
-
-            game.InitialiseGame(new SnapGameOptions
-            {
-                AutoStartWhenMinPlayersReached = false,
-            });
-
-            var player1 = new CpuPlayer("High intellgience medium", CpuIntelligence.High, CpuReactions.Medium);
-            var player2 = new CpuPlayer("Low intelligence fast", CpuIntelligence.Low, CpuReactions.Fast);
             
-            var player1Response = game.JoinGame(player1);
-            var player2Response = game.JoinGame(player2);
 
-            var task1 = Task.Run(() => player1.StartGamePlayingLoop());
-            var task2 = Task.Run(() => player2.StartGamePlayingLoop());
+            var player1 = new CpuPlayer("High IQ, medium speed", CpuIntelligence.High, CpuReactions.Medium);
+            var player2 = new CpuPlayer("Low IQ, fast speed", CpuIntelligence.Low, CpuReactions.Fast);
 
-            game.StartGame();
+            var results = new List<GameResult>();
 
-            while (game.Status == GameStatus.Playing)
+            for (var i = 0; i < 10; i++)
             {
-                // monitoring thread
-                Thread.Sleep(1000);
+                Console.WriteLine($"-- Starting game {i + 1} --");
+
+                var game = new SnapGame();
+
+                game.InitialiseGame(new SnapGameOptions
+                {
+                    AutoStartWhenMinPlayersReached = false,
+                });
+
+                var player1Response = game.JoinGame(player1);
+                var player2Response = game.JoinGame(player2);
+
+                var task1 = Task.Run(() => player1.StartGamePlayingLoop());
+                var task2 = Task.Run(() => player2.StartGamePlayingLoop());
+
+                game.StartGame();
+
+                while (game.Status == GameStatus.Playing)
+                {
+                    // monitoring thread
+                    Thread.Sleep(1000);
+                }
+
+                var response = game.CloseGame();
+
+                Console.WriteLine($"-- Closing game {i + 1} --");
+
+                results.Add(response);
             }
 
-            player1.StopGamePlayingLoop();
-            player2.StopGamePlayingLoop();
+            var players = new List<Player> { player1, player2 };
+
+            Console.WriteLine("| Player                    | Wins | Draws | Losses |");
+            Console.WriteLine("|---------------------------|------|-------|--------|");
+            foreach (var player in players)
+            {
+                var wins = results?.Count(x => x.Winners?.Contains(player) ?? false) ?? 0;
+                var draws = results?.Count(x => x.Drawers?.Contains(player) ?? false) ?? 0;
+                var losses = results?.Count(x => x.Losers?.Contains(player) ?? false) ?? 0;
+
+                Console.WriteLine($"| {player.Name,25} | {wins,4} | {draws,5} | {losses,6} |");
+            }
         }
+            
     }
 }

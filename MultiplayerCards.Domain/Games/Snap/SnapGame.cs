@@ -18,6 +18,7 @@ namespace MultiplayerCards.Domain.Games.Snap
         public int MaxPlayers { get; } = 2;
         public bool HasHumanPlayers => Players.Any(x => !x.IsCpu);
         public GameStatus Status { get; private set; } = GameStatus.NotInitialised;
+        public GameResult Result { get; private set; }
 
         private SnapGameOptions Options;
         private List<SnapGamePlayer> Players = new();
@@ -40,6 +41,18 @@ namespace MultiplayerCards.Domain.Games.Snap
 
             Options = options;
             Status = GameStatus.ReadyToStart;
+            Result = new GameResult();
+        }
+
+        public GameResult CloseGame()
+        {
+            foreach (var player in Players)
+            {
+                player.StopGamePlayingLoop();
+                player.LeaveGame();
+            }
+
+            return Result;
         }
 
         /// <summary>
@@ -145,8 +158,8 @@ namespace MultiplayerCards.Domain.Games.Snap
 
             GameStatesList.Add(gameState);
 
-            Console.WriteLine();
-            Console.WriteLine(gameState);
+            //Console.WriteLine();
+            //Console.WriteLine(gameState);
 
 
             // we need to tell the user what actions they can perform
@@ -337,6 +350,12 @@ namespace MultiplayerCards.Domain.Games.Snap
 
             CurrentPlayersTurn = null;
             Status = GameStatus.Finished;
+            Result = new GameResult
+            {
+                GameCompleted = true,
+                Winners = new List<Player> { player.Player },
+                Losers = new List<Player> { GetOpponent(player).Player }
+            };
 
             SendGameState(SnapActions.SnapSuccess, player.Name);
         }
@@ -452,13 +471,14 @@ namespace MultiplayerCards.Domain.Games.Snap
     {
         Task StartGamePlayingLoopAsync();
         void StopGamePlayingLoop();
+        void LeaveGame();
     }
 
     public abstract class BaseGamePlayer<TGame> : IGamePlayer
         where TGame : IGame
     {
         protected readonly TGame Game;
-        protected readonly Player Player;
+        internal readonly Player Player;
         public Guid Id { get; }
 
 
@@ -478,6 +498,7 @@ namespace MultiplayerCards.Domain.Games.Snap
 
         public abstract Task StartGamePlayingLoopAsync();
         public abstract void StopGamePlayingLoop();
+        public abstract void LeaveGame();
     }
 
     /// <summary>
@@ -500,16 +521,16 @@ namespace MultiplayerCards.Domain.Games.Snap
             }
         }
 
-        private int WaitIterationTimeInMs => Game.HasHumanPlayers ? 500 : 50;
+        private int WaitIterationTimeInMs => Game.HasHumanPlayers ? 500 : 10;
 
         private int MinThinkingTimeInMs => Game.HasHumanPlayers ? 200 : 0;
 
         private int ThinkingTimeInMs => MinThinkingTimeInMs + (CpuPlayer.Reactions == CpuReactions.Fast
-            ? random.Next(50) : CpuPlayer.Reactions == CpuReactions.Medium ? random.Next(100) : random.Next(150));
+            ? random.Next(20) : CpuPlayer.Reactions == CpuReactions.Medium ? random.Next(40) : random.Next(60));
 
         private int RandomCallSnapWithoutCheckingOneInX => 
-            CpuPlayer.Intelligence == CpuIntelligence.Low ? 10
-            : CpuPlayer.Intelligence == CpuIntelligence.Medium ? 50 : 100;
+            CpuPlayer.Intelligence == CpuIntelligence.Low ? 60
+            : CpuPlayer.Intelligence == CpuIntelligence.Medium ? 80 : 100;
 
         private bool _continueGamePlayingLoop;
 
@@ -550,6 +571,12 @@ namespace MultiplayerCards.Domain.Games.Snap
         public override void StopGamePlayingLoop()
         {
             _continueGamePlayingLoop = false;
+        }
+
+        public override void LeaveGame()
+        {
+            StopGamePlayingLoop();
+            Player.UnlinkGamePlayer();
         }
 
         public void ReceiveGameState(SnapGameState gameState, List<string> availableActions)
@@ -643,5 +670,14 @@ namespace MultiplayerCards.Domain.Games.Snap
         public int NumbersInUse { get; set; } = 13;
 
         public bool AutoStartWhenMinPlayersReached { get; set; } = true;
+    }
+
+    public class GameResult
+    {
+        public bool GameCompleted { get; set; }
+
+        public List<Player> Winners { get; set; }
+        public List<Player> Drawers { get; set; }
+        public List<Player> Losers { get; set; }
     }
 }
